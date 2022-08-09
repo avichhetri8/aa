@@ -1,0 +1,56 @@
+﻿@attribute [GenerateReact]
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<h1>@Title</h1>
+
+<p role="status">Current count: @currentCount</p>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+
+@code {
+    private int currentCount = 0;
+
+    // GenerateReact を使うコンポーネントは1つ以上の Parameter が必要
+    [Parameter] public string Title { get; set; } = "Blazor Component Counter";
+    [Parameter] public EventCallback<int> MyEventCallback { get; set; }
+
+    [Parameter] public EventCallback<DotNetObjectReference<Counter>> OnComponentInitializedCb { get; set; }
+    [Parameter] public EventCallback OnComponentDestroyedCb { get; set; }
+
+    private DotNetObjectReference<Counter>? objRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender)
+        {
+            objRef = DotNetObjectReference.Create(this);
+            await OnComponentInitializedCb.InvokeAsync(objRef);
+        }
+    }
+
+    public async void Dispose()
+    {
+        GC.SuppressFinalize(this);
+
+        if (objRef != null)
+        {
+            await OnComponentInitializedCb.InvokeAsync();
+            objRef?.Dispose();
+        }
+    }
+
+    private async Task IncrementCount()
+    {
+        currentCount++;
+        await MyEventCallback.InvokeAsync(currentCount);
+    }
+
+    [JSInvokable("FooBarManaged")]
+    public Task<int> FooBar()
+    {
+        System.Console.WriteLine("FooBar: From BlazorComponent");
+        return Task.FromResult(1);
+    }
+}
